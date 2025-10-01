@@ -56,6 +56,18 @@ Future expansion zones: Dixon, Questa, Peñasco.
    - Primary sort: smallest time delta within the same zone.
    - Tiebreakers: driver acceptance history, ratings, no-show records.
 
+### Meet Point Selection
+- **Preferred meet point resolution**
+  1. Start with the rider's explicitly ranked meet points for the zone (defaulting to program-suggested ordering when no rider preference exists).
+  2. Score each candidate using a blend of (a) distance/time off the driver's declared baseline path and (b) driver-stated meet point preferences captured from past confirmations.
+  3. Select the top-scoring meet point that satisfies any accessibility constraints (e.g., van-accessible, lighting requirements). If all options are equal, prefer the rider's highest-ranked choice.
+- **Routing hand-off**
+  - Once selected, surface the meet point's canonical coordinates (`lat`, `lon`) to the matching service so the detour computation uses the exact waypoint fed to routing APIs (e.g., Mapbox Directions). Engineers should pass the baseline origin/destination plus this single resolved waypoint to ensure consistency between the meet-point picker and detour validator.
+- **UX hooks**
+  - Riders may reorder meet points within a zone in settings; the backend stores the ranking to seed step 1.
+  - Drivers can opt-in to "preferred pickup" toggles per zone (e.g., "avoid plaza"), which seed step 2's scoring weight.
+  - Future experiments can expose "remember last accepted meet point" so the system nudges toward previously successful exchanges while still respecting rider accessibility needs.
+
 ## Data Model (PostgreSQL + PostGIS)
 
 ### Tables
