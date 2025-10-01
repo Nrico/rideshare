@@ -101,13 +101,40 @@ The rider zone is joined to the same trip twice: once for the pickup (`dz_pickup
 - **Notifications**: Firebase Cloud Messaging and APNs; email fallback via campus SMTP.
 
 ## API Sketch
-- `GET /zones` – Retrieve active zones and meet points.
-- `POST /driver/trips` – Create/update driver trip templates.
-- `POST /rider/requests` – Submit a ride request.
-- `GET /matches/zone-first` – Fetch zone-first driver candidates.
-- `POST /matches/confirm` – Run detour check and book a seat if within threshold.
-- `POST /messages/:trip_id` – In-app chat with masked contact details.
-- `POST /safety/report` – File safety reports.
+
+All endpoints require a **Bearer token** minted after a successful UNM OIDC login. Tokens are issued by the campus identity provider and carry user role claims that the API must validate for every request. Requests lacking a valid token (signature, issuer, audience) must be rejected with `401 Unauthorized`; tokens missing required role claims must receive `403 Forbidden`.
+- `GET /zones` – Retrieve active zones and meet points. Accepts tokens with any of the roles below because the directory is shared across rider and driver experiences.
+- `POST /driver/trips` – Create/update driver trip templates. Requires tokens with the `driver` role/claim in addition to the default `user` claim so only vetted drivers publish routes.
+- `POST /rider/requests` – Submit a ride request. Requires the `rider` role/claim plus the base `user` claim.
+- `GET /matches/zone-first` – Fetch zone-first driver candidates. Requires `rider` claim when scoped to rider search; `driver` claim when used for driver dashboards. Admin tokens may access both modes for troubleshooting.
+- `POST /matches/confirm` – Run detour check and book a seat if within threshold. Requires `rider` claim to request a booking and `driver` claim to confirm acceptance. Admin tokens can override to resolve escalations.
+- `POST /messages/:trip_id` – In-app chat with masked contact details. Requires either `rider` or `driver` claim and must validate that the caller participates in the trip thread; admins may access for moderation.
+- `POST /safety/report` – File safety reports. Accepts any authenticated `user` (rider, driver, admin) and additionally allows admins to fetch or triage reports via future `GET /safety/report` endpoints.
+
+### Roles and Claims
+
+- **Base Claims**
+  - `user`: present on all issued tokens once OIDC login completes.
+  - `sub`: stable user identifier from UNM OIDC.
+- **Rider**
+  - `role: rider` claim, added after rider onboarding (student/staff eligibility check).
+  - Optional `rider_verified` boolean claim once safety checks (e.g., student status) pass; required for booking endpoints.
+- **Driver**
+  - `role: driver` claim, set after license/insurance verification.
+  - Optional `driver_verified` claim to flag background/vehicle checks; required for trip publishing and confirmation routes.
+- **Admin**
+  - `role: admin` claim restricted to Student Affairs / program staff.
+  - Optional scoped claims such as `admin:safety_review` or `admin:user_mgmt` to gate sensitive operations.
+
+### Token Lifetime and Renewal
+
+- **Access Tokens**: 60-minute lifetime to balance security with mobile usability.
+- **Refresh Tokens**: 12-hour lifetime (rolling) issued alongside access tokens after OIDC login. Store in client keychain/secure storage and rotate on each use.
+- **Renewal Flow**:
+  1. Mobile/web clients silently call `/auth/refresh` with the refresh token when the access token is within five minutes of expiry.
+  2. Backend validates the refresh token, issues new access and refresh pair, and revokes the previous refresh token (rotate-on-use).
+  3. If refresh fails (e.g., revoked, expired), clients must prompt for full UNM SSO re-authentication.
+- **Revocation Hooks**: Admin tools trigger token revocation when a user is suspended; backend must maintain a revocation list or rely on short-lived tokens plus refresh rotation.
 
 ## Safety, Privacy, and Operations
 - Store only zone IDs and meet points—never home addresses.
