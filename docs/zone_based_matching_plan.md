@@ -1,5 +1,17 @@
 # Zone-Based Matching Plan for UNM-Taos Rideshare
 
+## How this plan relates to other approaches
+- Builds on the [Deterministic Matching Plan](deterministic_matching_plan.md) by reusing its authentication, safety, and detour-validation guardrails while moving the initial filtering step to pre-defined zones.
+- Complements (rather than replaces) deterministic matching: zone-first workflows surface candidates quickly, then fall back to deterministic routing for confirmation.
+- Supersedes a deterministic-only deployment once request volume grows enough that per-request routing calls become cost-prohibitive or too slow for riders waiting in the queue.
+
+### Adoption progression
+| Stage | Primary approach | When to use | Signals to advance |
+| --- | --- | --- | --- |
+| 1 | Deterministic route-by-route matching | Pilot launch with <50 daily ride requests where manual oversight is still feasible. | Desire to reduce repeated routing calls, need faster shortlisting for riders. |
+| 2 | Zone-first matching with deterministic confirmation | Demand clusters by neighborhood and teams want faster “top candidates” lists without sacrificing detour limits. | Increased API spend, riders waiting >2 minutes for matches, expansion beyond initial commute hours. |
+| 3 | Expanded zones with analytics-driven refinement | Mature program supporting multi-campus trips or carpools beyond Taos corridors. | Need for dynamic zone tuning, appetite for automated insights, exploration of paid prioritization features. |
+
 ## Overview
 This document outlines a hybrid zone-and-route matching model tailored for The University of New Mexico-Taos pilot. The goal is to keep most interactions fast and lightweight while ensuring detours remain reasonable when riders and drivers finalize a match.
 

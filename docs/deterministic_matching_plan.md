@@ -1,5 +1,10 @@
 # Deterministic Matching Plan for Campus-Only Rideshare
 
+## How this plan relates to other approaches
+- Serves as the launch-day workflow for the UNM-Taos pilot when rider and driver volumes are small enough that per-trip routing checks remain affordable.
+- Establishes the safety, authentication, and detour validation foundations that later approaches (such as the [Zone-Based Matching Plan](zone_based_matching_plan.md)) rely on.
+- Remains relevant even after adopting zones because the same deterministic detour calculation is used during final confirmation in the zone-first workflow.
+
 ## Goals
 - Limit access to University of New Mexico-Taos participants via NetID/SSO login.
 - Enable safe, privacy-preserving carpools that respect 20-minute arrival windows and 3–5 minute detour ceilings.
