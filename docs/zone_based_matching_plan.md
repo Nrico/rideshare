@@ -61,10 +61,35 @@ Future expansion zones: Dixon, Questa, Peñasco.
 ### Tables
 - **zones**: `id`, `name`, `geom`, `meet_points` (JSON array of `{name, lat, lon}`), `active`.
 - **users**: `id`, `name`, `role`, verification flags (SSO, license, insurance), rating stats, safety flags.
-- **driver_trips**: trip metadata including direction, date, `time_window_start/end`, `seat_total`, `seat_taken`, ordered `zone_ids_pass_through`, notes.
+- **driver_trips**: trip metadata including direction, date, `time_window_start/end`, `seat_total`, `seat_taken`, notes. The ordered path information moves to `driver_trip_zones` for normalization.
+- **driver_trip_zones**: `trip_id`, `zone_id`, `sequence_index`. Stores the ordered zones a driver declares for a specific trip and supports waypoints that can be reused across templates.
 - **rider_requests**: `direction`, date, `time_target`, `time_flex_minutes` (default 20), `zone_id`, status, `matched_driver_trip_id`.
 - **matches_log**: record of candidate matches with ranking position and acceptance outcome.
 - **safety_reports**: submissions with categories, notes, and timestamps.
+
+### Querying ordered zones
+Use `driver_trip_zones` to enforce the rider's pickup occurs in the same order a driver travels. A typical query:
+
+```sql
+SELECT dt.id AS driver_trip_id
+FROM driver_trips dt
+JOIN driver_trip_zones dz_pickup
+  ON dz_pickup.trip_id = dt.id
+JOIN driver_trip_zones dz_dropoff
+  ON dz_dropoff.trip_id = dt.id
+WHERE dz_pickup.zone_id = :rider_zone_id
+  AND dz_dropoff.zone_id = :campus_zone_id
+  AND dz_pickup.sequence_index < dz_dropoff.sequence_index
+  AND dt.direction = :direction
+  AND tstzrange(dt.time_window_start, dt.time_window_end) && :rider_time_window;
+```
+
+The rider zone is joined to the same trip twice: once for the pickup (`dz_pickup`) and once for the subsequent campus (or other destination) zone (`dz_dropoff`). Comparing `sequence_index` ensures the driver reaches the rider before the campus leg. Additional filters (seat availability, safety blocks) layer on top of this base query.
+
+### Indexing strategy
+- Composite B-tree on `(trip_id, sequence_index)` for `driver_trip_zones` to accelerate sequential scans within a trip and support `ORDER BY sequence_index` when presenting waypoints.
+- Composite B-tree on `(zone_id, sequence_index)` to quickly find drivers passing through a zone and understand their relative ordering without scanning all trips.
+- Existing indexes on `driver_trips` (direction, time window ranges) remain important for filtering before joining to `driver_trip_zones`.
 
 ## Technology Stack
 - **Mobile**: React Native (iOS/Android) or Flutter, with a responsive web fallback via React PWA.
